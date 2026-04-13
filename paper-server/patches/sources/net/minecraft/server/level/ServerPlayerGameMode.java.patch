@@ -313,7 +313,7 @@
          InteractionResult result = itemStack.use(level, player, hand);
          ItemStack resultStack;
          if (result instanceof InteractionResult.Success success) {
-@@ -340,25 +_,70 @@
+@@ -340,25 +_,74 @@
          }
  
          if (!player.isUsingItem()) {
@@ -365,7 +365,8 @@
 +        this.interactHand = hand;
 +        this.interactItemStack = itemStack.copy();
 +
-+        if (event.useInteractedBlock() == org.bukkit.event.Event.Result.DENY) {
++        final boolean deniedBlockInteraction = event.useInteractedBlock() == org.bukkit.event.Event.Result.DENY; // Paper - Allow item use when denying block interaction
++        if (deniedBlockInteraction) {
 +            // Block acks will take care of most of it, just handle some special cases here
 +            if (state.getBlock() instanceof net.minecraft.world.level.block.CakeBlock) {
 +                player.getBukkitEntity().sendHealthUpdate(); // SPIGOT-1341 - reset health for cake
@@ -380,13 +381,25 @@
 +            }
 +            // Paper end - Fix inventory desync
 +            this.player.resyncUsingItem(this.player); // Paper - Properly cancel usable items
-+            return (event.useItemInHand() != org.bukkit.event.Event.Result.ALLOW) ? InteractionResult.SUCCESS : InteractionResult.PASS;
-+        } else if (this.gameModeForPlayer == GameType.SPECTATOR) {
++            if (event.useItemInHand() != org.bukkit.event.Event.Result.ALLOW) return InteractionResult.SUCCESS; // Paper - Allow item use when denying block interaction
++        }
++
++        if (this.gameModeForPlayer == GameType.SPECTATOR) {
++            if (deniedBlockInteraction) return InteractionResult.PASS; // Paper - Allow item use when denying block interaction
 +            MenuProvider menuProvider = state.getMenuProvider(level, pos);
 +            if (menuProvider != null && player.openMenu(menuProvider).isPresent()) { // Paper - Fix InventoryOpenEvent cancellation
                  return InteractionResult.CONSUME;
              } else {
                  return InteractionResult.PASS;
+@@ -367,7 +_,7 @@
+             boolean haveSomethingInOurHands = !player.getMainHandItem().isEmpty() || !player.getOffhandItem().isEmpty();
+             boolean suppressUsingBlock = player.isSecondaryUseActive() && haveSomethingInOurHands;
+             ItemStack usedItemStack = itemStack.copy();
+-            if (!suppressUsingBlock) {
++            if (!deniedBlockInteraction && !suppressUsingBlock) { // Paper - Allow item use when denying block interaction
+                 InteractionResult itemUse = state.useItemOn(player.getItemInHand(hand), level, player, hand, hitResult);
+                 if (itemUse.consumesAction()) {
+                     CriteriaTriggers.ITEM_USED_ON_BLOCK.trigger(player, pos, usedItemStack);
 @@ -383,7 +_,7 @@
                  }
              }
